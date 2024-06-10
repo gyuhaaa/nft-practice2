@@ -1,6 +1,9 @@
 .deps
 artifacts
 res
+.deploy
+.states
+
 
 # Logs
 logs
