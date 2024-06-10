@@ -14,14 +14,25 @@ import { Dispatch, FC, SetStateAction, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import mintAbi from "../abis/mintAbi.json";
+import saleAbi from "../abis/saleAbi.json";
+import {
+  mintContractAddress,
+  saleContractAddress,
+} from "../abis/contractAddress";
 
 interface HeaderProps {
   signer: JsonRpcSigner | null;
   setSigner: Dispatch<SetStateAction<JsonRpcSigner | null>>;
   setMintContract: Dispatch<SetStateAction<Contract | null>>;
+  setSaleContract: Dispatch<SetStateAction<Contract | null>>;
 }
 
-const Header: FC<HeaderProps> = ({ signer, setSigner, setMintContract }) => {
+const Header: FC<HeaderProps> = ({
+  signer,
+  setSigner,
+  setMintContract,
+  setSaleContract,
+}) => {
   const navigate = useNavigate();
 
   const onClickMetamask = async () => {
@@ -43,13 +54,8 @@ const Header: FC<HeaderProps> = ({ signer, setSigner, setMintContract }) => {
       return;
     }
 
-    setMintContract(
-      new Contract(
-        "0x5e7145a4D7011774b7A6625CE38A08b3e14736De",
-        mintAbi,
-        signer
-      )
-    );
+    setMintContract(new Contract(mintContractAddress, mintAbi, signer));
+    setSaleContract(new Contract(saleContractAddress, saleAbi, signer));
   }, [signer]);
 
   return (
