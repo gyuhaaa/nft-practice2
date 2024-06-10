@@ -153,6 +153,7 @@ const MyNft: FC = () => {
                 nftMetadata={v}
                 tokenId={tokenIds[i]}
                 saleContract={saleContract}
+                isApprovedForAll={isApprovedForAll}
               />
             ))}
           </Grid>

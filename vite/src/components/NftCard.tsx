@@ -22,11 +22,18 @@ interface NftCardProps {
   nftMetadata: NftMetadata;
   tokenId: number;
   saleContract: Contract | null;
+  isApprovedForAll: boolean;
 }
 
-const NftCard: FC<NftCardProps> = ({ nftMetadata, tokenId, saleContract }) => {
+const NftCard: FC<NftCardProps> = ({
+  nftMetadata,
+  tokenId,
+  saleContract,
+  isApprovedForAll,
+}) => {
   const [currentPrice, setCurrentPrice] = useState<bigint>();
   const [salePrice, setSalePrice] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const getTokenPrice = async () => {
     try {
@@ -42,6 +49,8 @@ const NftCard: FC<NftCardProps> = ({ nftMetadata, tokenId, saleContract }) => {
     try {
       if (!salePrice || isNaN(Number(salePrice))) return;
 
+      setIsLoading(true);
+
       const response = await saleContract?.setForSaleNft(
         tokenId,
         parseEther(salePrice)
@@ -50,8 +59,12 @@ const NftCard: FC<NftCardProps> = ({ nftMetadata, tokenId, saleContract }) => {
       await response.wait();
 
       setCurrentPrice(parseEther(salePrice));
+
+      setIsLoading(false);
     } catch (error) {
       console.error(error);
+
+      setIsLoading(false);
     }
   };
 
@@ -91,20 +104,29 @@ const NftCard: FC<NftCardProps> = ({ nftMetadata, tokenId, saleContract }) => {
       <Flex mt={4}>
         {currentPrice ? (
           <Text>{formatEther(currentPrice)} ETH</Text>
-        ) : (
+        ) : isApprovedForAll ? (
           <>
             <InputGroup>
               <Input
                 value={salePrice}
                 onChange={(e) => setSalePrice(e.target.value)}
                 textAlign="right"
+                isDisabled={isLoading}
               />
               <InputRightAddon>ETH</InputRightAddon>
             </InputGroup>
-            <Button ml={2} onClick={onClickSetForSaleNft}>
+            <Button
+              ml={2}
+              onClick={onClickSetForSaleNft}
+              isDisabled={isLoading}
+              isLoading={isLoading}
+              loadingText="로딩중"
+            >
               등록
             </Button>
           </>
+        ) : (
+          ""
         )}
       </Flex>
     </GridItem>
