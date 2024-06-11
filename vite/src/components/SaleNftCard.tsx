@@ -12,47 +12,43 @@ import {
   PopoverTrigger,
   Text,
 } from "@chakra-ui/react";
+import axios from "axios";
 import { Contract, formatEther, JsonRpcSigner } from "ethers";
 import { Dispatch, FC, SetStateAction, useEffect, useState } from "react";
 
 interface SaleNftCardProps {
-  nftMetadata: NftMetadata;
   tokenId: number;
   mintContract: Contract | null;
   saleContract: Contract | null;
   signer: JsonRpcSigner | null;
-  getOnSaleTokens: () => Promise<void>;
-  getNftMetadata: () => Promise<void>;
+  tokenIds: number[];
+  setTokenIds: Dispatch<SetStateAction<number[]>>;
 }
 
 const SaleNftCard: FC<SaleNftCardProps> = ({
-  nftMetadata,
   tokenId,
   mintContract,
   saleContract,
   signer,
-  getOnSaleTokens,
-  getNftMetadata,
+  tokenIds,
+  setTokenIds,
 }) => {
-  const [currentPrice, setCurrentPrice] = useState<bigint>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isOwner, setIsOwner] = useState<boolean>(false);
+  const [nftMetadata, setNftMetadata] = useState<SaleNftMetadata>();
 
-  const getTokenPrice = async () => {
+  const getNftMetadata = async () => {
     try {
-      const response = await saleContract?.getTokenPrice(tokenId);
+      const tokenURI = await mintContract?.tokenURI(tokenId);
 
-      setCurrentPrice(response);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+      const metadataResponse = await axios.get<NftMetadata>(tokenURI);
+      const priceResponse = await saleContract?.getTokenPrice(tokenId);
+      const ownerResponse = await mintContract?.ownerOf(tokenId);
 
-  const getOwnerOf = async () => {
-    try {
-      const response = await mintContract?.ownerOf(tokenId);
-
-      setIsOwner(signer?.address === response);
+      setNftMetadata({
+        ...metadataResponse.data,
+        price: priceResponse,
+        tokenOwner: ownerResponse,
+      });
     } catch (error) {
       console.error(error);
     }
@@ -63,13 +59,18 @@ const SaleNftCard: FC<SaleNftCardProps> = ({
       setIsLoading(true);
 
       const response = await saleContract?.purchaseNft(tokenId, {
-        value: currentPrice,
+        value: nftMetadata?.price,
       });
 
       await response.wait();
 
-      await getOnSaleTokens();
-      await getNftMetadata();
+      const temp = tokenIds.filter((v) => {
+        if (v !== tokenId) {
+          return v;
+        }
+      });
+
+      setTokenIds(temp);
 
       setIsLoading(false);
     } catch (error) {
@@ -80,63 +81,67 @@ const SaleNftCard: FC<SaleNftCardProps> = ({
   };
 
   useEffect(() => {
-    if (!saleContract || !tokenId) return;
+    if (!saleContract || !tokenId || !mintContract) return;
 
-    getTokenPrice();
-  }, [saleContract, tokenId]);
+    getNftMetadata();
+  }, [saleContract, mintContract, tokenId]);
 
-  useEffect(() => {
-    if (!mintContract || !tokenId) return;
-
-    getOwnerOf();
-  }, [mintContract, tokenId]);
+  useEffect(() => console.log(nftMetadata), [nftMetadata]);
 
   return (
     <GridItem display="flex" flexDir="column">
-      <Image
-        alignSelf="center"
-        src={nftMetadata.image}
-        alt={nftMetadata.name}
-      />
-      <Popover>
-        <PopoverTrigger>
-          <Button mt={4} fontSize={24} fontWeight="semibold" variant="link">
-            {nftMetadata.name}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent>
-          <PopoverArrow />
-          <PopoverCloseButton />
-          <PopoverBody>{nftMetadata.description}</PopoverBody>
-        </PopoverContent>
-      </Popover>
-      <Flex flexWrap="wrap" mt={4} gap={2}>
-        {nftMetadata.attributes?.map((w, j) => (
-          <Box key={j} border="2px solid olive" p={1}>
-            <Text borderBottom="2px solid olive">{w.trait_type}</Text>
-            <Text>{w.value}</Text>
-          </Box>
-        ))}
-      </Flex>
-      <Flex mt={4} alignItems="center">
-        {currentPrice ? (
-          <>
-            <Text>{formatEther(currentPrice)} ETH</Text>
-            <Button
-              ml={2}
-              colorScheme="pink"
-              onClick={onClickPurchaseNft}
-              isDisabled={isLoading || isOwner}
-              isLoading={isLoading}
-              loadingText="로딩중"
-            >
-              구매
-            </Button>
-          </>
-        ) : (
-          ""
-        )}
-      </Flex>
+      {nftMetadata ? (
+        <>
+          <Image
+            alignSelf="center"
+            src={nftMetadata.image}
+            alt={nftMetadata.name}
+          />
+          <Popover>
+            <PopoverTrigger>
+              <Button mt={4} fontSize={24} fontWeight="semibold" variant="link">
+                {nftMetadata.name}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent>
+              <PopoverArrow />
+              <PopoverCloseButton />
+              <PopoverBody>{nftMetadata.description}</PopoverBody>
+            </PopoverContent>
+          </Popover>
+          <Flex flexWrap="wrap" mt={4} gap={2}>
+            {nftMetadata.attributes?.map((w, j) => (
+              <Box key={j} border="2px solid olive" p={1}>
+                <Text borderBottom="2px solid olive">{w.trait_type}</Text>
+                <Text>{w.value}</Text>
+              </Box>
+            ))}
+          </Flex>
+          <Flex mt={4} alignItems="center">
+            {nftMetadata.price ? (
+              <>
+                <Text>{formatEther(nftMetadata.price)} ETH</Text>
+                <Button
+                  ml={2}
+                  colorScheme="pink"
+                  onClick={onClickPurchaseNft}
+                  isDisabled={
+                    isLoading || nftMetadata.tokenOwner === signer?.address
+                  }
+                  isLoading={isLoading}
+                  loadingText="로딩중"
+                >
+                  구매
+                </Button>
+              </>
+            ) : (
+              ""
+            )}
+          </Flex>
+        </>
+      ) : (
+        ""
+      )}
     </GridItem>
   );
 };
